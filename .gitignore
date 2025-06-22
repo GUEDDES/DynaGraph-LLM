@@ -1,10 +1,12 @@
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.DS_Store
-.env
-.vscode/
-*.log
-*.json
-*.pdf
+echo "__pycache__/" >> .gitignore
+echo "*.pyc" >> .gitignore
+echo "*.pyo" >> .gitignore
+echo "*.pyd" >> .gitignore
+echo ".DS_Store" >> .gitignore
+echo ".env" >> .gitignore
+echo ".vscode/" >> .gitignore
+echo "*.log" >> .gitignore
+echo "*.json" >> .gitignore
+echo "*.pdf" >> .gitignore
+echo "venv/" >> .gitignore
+echo ".idea/" >> .gitignore
