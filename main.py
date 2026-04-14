@@ -1,4 +1,5 @@
 import networkx as nx
+import matplotlib.pyplot as plt
 from core.constructor import TemporalKnowledgeConstructor
 from core.retriever import MultiScaleRetriever
 from core.consolidator import MemoryConsolidator
@@ -41,9 +42,9 @@ class DynaGraphSystem:
         })
         
         # Update knowledge graph
+        combined_text = f"User: {user_input}\nAssistant: {response}"
         self.knowledge_graph.update(
-            user_input, 
-            response, 
+            combined_text, 
             self.constructor
         )
         self.turn_count += 1
@@ -68,10 +69,10 @@ class DynaGraphSystem:
         [ASSISTANT RESPONSE]
         """
         
-        response = openai.chat.completions.create(
+        client = openai.OpenAI(base_url=config.API_BASE_URL, api_key=config.API_KEY)
+        response = client.chat.completions.create(
             model=config.MAIN_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
+            messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
     
@@ -82,6 +83,34 @@ class DynaGraphSystem:
             for item in recent
         )
 
+    def visualize_graph(self):
+        """Displays the current Knowledge Graph using Matplotlib"""
+        G = self.knowledge_graph.graph
+        if len(G.nodes) == 0:
+            print("[System] The graph is currently empty.")
+            return
+
+        plt.figure(figsize=(10, 8))
+        pos = nx.spring_layout(G, k=0.5)
+        
+        # Nodes
+        nx.draw_networkx_nodes(G, pos, node_color='lightblue', node_size=2000, alpha=0.8)
+        
+        # Edges
+        nx.draw_networkx_edges(G, pos, edge_color='gray', arrows=True, width=1.5, alpha=0.5)
+        
+        # Labels
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif', font_weight='bold')
+        
+        # Edge Labels
+        edge_labels = {(u, v): d.get('predicate', '') for u, v, d in G.edges(data=True)}
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=7)
+        
+        plt.title(f"DynaGraph-LLM Topology (Nodes: {len(G.nodes)}, Edges: {len(G.edges)})")
+        plt.axis('off')
+        plt.tight_layout()
+        plt.show()
+
 if __name__ == "__main__":
     import sys
     system = DynaGraphSystem()
@@ -91,6 +120,19 @@ if __name__ == "__main__":
         user_input = input("\nUser: ")
         if user_input.lower() in ['exit', 'quit']:
             break
+            
+        if user_input.lower() in ['visualize', 'voir graph', 'voir', 'show graph']:
+            system.visualize_graph()
+            continue
+            
+        if user_input.lower() in ['consolider', 'consolidate']:
+            print("\n[System] Performing memory consolidation...")
+            old_size = len(system.knowledge_graph.graph.nodes)
+            system.knowledge_graph.consolidate(system.consolidator)
+            new_size = len(system.knowledge_graph.graph.nodes)
+            print(f"[System] Consolidation finished: Nodes reduced from {old_size} to {new_size}.")
+            system.visualize_graph()
+            continue
             
         response = system.process_input(user_input)
         print(f"\nAssistant: {response}")

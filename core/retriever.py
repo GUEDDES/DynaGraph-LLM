@@ -6,6 +6,7 @@ from config import DynaGraphConfig as config
 
 class MultiScaleRetriever:
     def __init__(self, beam_width=3, kappa=0.8):
+        self._initial_beam_width = beam_width
         self.beam_width = beam_width
         self.kappa = kappa
         self.nlp = spacy.load("en_core_web_sm")
@@ -48,9 +49,18 @@ class MultiScaleRetriever:
         if not graph.nodes:
             return ""
             
-        # Determine cognitive depth
+        # Calculate average branching factor (degree)
+        degrees = [d for n, d in graph.degree()]
+        b = max(1.1, sum(degrees) / len(degrees)) if degrees else 1.1
+        
+        # Enforce probabilistic Beam Search Completeness (Prop 2)
+        # B >= ceil(b * ln(1/epsilon)) with epsilon = 0.1 (ln(10) ~ 2.302)
+        min_beam = int(np.ceil(b * 2.302))
+        self.beam_width = max(self._initial_beam_width, min_beam)
+        
+        # Determine cognitive depth utilizing mathematical bound
         if delta is None:
-            delta = self._determine_cognitive_depth(graph)
+            delta = self._determine_cognitive_depth(b)
         
         anchor_nodes = self.identify_anchor_nodes(query, graph)
         if not anchor_nodes:
@@ -65,13 +75,48 @@ class MultiScaleRetriever:
                 
         return self._linearize_context(context_subgraph)
     
-    def _determine_cognitive_depth(self, graph: nx.Graph) -> int:
-        """Dynamically set delta based on graph complexity"""
-        num_nodes = len(graph.nodes)
-        complexity_factor = min(1.0, num_nodes / 100)
-        return max(config.DELTA_RANGE[0], 
-                 min(config.DELTA_RANGE[1], 
-                     int(config.DELTA_RANGE[0] + complexity_factor * (config.DELTA_RANGE[1] - config.DELTA_RANGE[0]))))
+    def _determine_cognitive_depth(self, b: float) -> int:
+        """Dynamically analytically calculate delta* minimizing the joint latency/amnesia objective"""
+        # System parameters
+        C_miss = 10.0
+        lambda_cost = 0.5
+        C_op = 1.0
+        k_1 = 0.8
+        B = self.beam_width
+        
+        # Handle log constraints safely
+        ln_b = np.log(b)
+        numerator = C_miss * k_1
+        denominator = lambda_cost * C_op * B * ln_b
+        
+        if denominator <= 0:
+            return config.DELTA_RANGE[0]
+            
+        ratio = numerator / denominator
+        if ratio <= 0:
+            return config.DELTA_RANGE[0]
+            
+        # Continuous relaxation root
+        delta_real = (1.0 / (k_1 + ln_b)) * np.log(ratio)
+        
+        # If delta_real is outside bounds or negative, clamp
+        if delta_real <= config.DELTA_RANGE[0]:
+            return config.DELTA_RANGE[0]
+        if delta_real >= config.DELTA_RANGE[1]:
+            return config.DELTA_RANGE[1]
+            
+        # Optimization: calculate Loss function for floor and ceil to find true minimizing integer
+        def loss_fn(d):
+            # L(delta) = C_miss * e^(-k_1 * delta) + lambda_cost * C_op * B * (b^delta - 1)/(b - 1)
+            loss_amnesia = C_miss * np.exp(-k_1 * d)
+            loss_latency = lambda_cost * C_op * B * ((b**d - 1) / (b - 1))
+            return loss_amnesia + loss_latency
+            
+        d_floor = int(np.floor(delta_real))
+        d_ceil = int(np.ceil(delta_real))
+        
+        delta_star = d_floor if loss_fn(d_floor) < loss_fn(d_ceil) else d_ceil
+        return max(config.DELTA_RANGE[0], min(config.DELTA_RANGE[1], delta_star))
     
     def _beam_search(self, graph: nx.Graph, start: str, depth: int) -> List[List[str]]:
         beam = [([start], 0.0)]  # (path, cumulative score)

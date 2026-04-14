@@ -15,9 +15,11 @@ class DynaGraphConfig:
     MERGE_SIMILARITY = 0.85  # Node merging threshold
     COMMUNITY_RESOLUTION = 1.0  # Louvain community detection resolution
     
-    # LLM Integration
-    TRIPLET_MODEL = "gpt-4-1106-preview"
-    MAIN_MODEL = "gpt-4-1106-preview"
+    # LLM Integration (Google AI Studio API)
+    TRIPLET_MODEL = "gemini-2.5-flash"
+    MAIN_MODEL = "gemini-2.5-flash"
+    API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    API_KEY = "VOTRE_CLE_AI_STUDIO_ICI"  # Remplacer par votre clé Google AI Studio
     
     # Evaluation
     LONG_RANGE_TEST_SIZE = 100

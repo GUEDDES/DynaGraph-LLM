@@ -8,7 +8,11 @@ A neuro-symbolic framework for mitigating contextual amnesia in Large Language M
 - Multi-scale δ-depth retrieval
 - Dual-phase memory consolidation
 - Cognitive depth optimization
+- **Advanced Regex JSON extraction for robust triplet generation**
+- **Native Google AI Studio (Gemini 2.5 Flash) integration**
+- **Interactive Visualizer using Matplotlib/NetworkX**
 - Comprehensive evaluation suite
+
 
 ## Architecture
 
@@ -24,11 +28,17 @@ python -m spacy download en_core_web_sm
 ## Usage
 
 ```python
-from dynagraph import DynaGraphSystem
+from main import DynaGraphSystem
 
 system = DynaGraphSystem()
-response = system.process_input("What activities would you recommend in Kyoto?")
-print(response)
+# Interactive mode via CLI supports standard commands:
+# - 'voir' or 'visualize': Displays the topology of the current memory graph
+# - 'consolider': Triggers explicit spatial prune/merge of the graph
+```
+
+Or just run the interactive terminal:
+```bash
+python main.py
 ```
 
 ## Configuration
